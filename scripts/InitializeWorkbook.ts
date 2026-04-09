@@ -11,20 +11,19 @@ function initializeWorkbook(workbook: ExcelScript.Workbook): void {
   populateUsers(workbook);
   populateTimeEntries(workbook);
 
-  // Hide DB sheets and show only LOGIN + README
   hideAllWorksheets(workbook);
 
-  const readmeSheet = workbook.getWorksheet("README");
+  const readmeSheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("README");
   if (readmeSheet) readmeSheet.setVisibility(ExcelScript.SheetVisibility.visible);
 }
 
 function populateTeams(workbook: ExcelScript.Workbook): void {
-  const sheet = workbook.getWorksheet("TEAMS_DB");
+  const sheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("TEAMS_DB");
   if (!sheet) return;
-  const table = sheet.getTable("TeamsTable");
+  const table: ExcelScript.Table | undefined = sheet.getTable("TeamsTable");
   if (!table) return;
 
-  const teams = [
+  const teams: string[][] = [
     ["T001", "Engineering", "", "U002"],
     ["T002", "Design", "", "U003"],
     ["T003", "Backend", "T001", "U004"],
@@ -37,12 +36,12 @@ function populateTeams(workbook: ExcelScript.Workbook): void {
 }
 
 function populateActivities(workbook: ExcelScript.Workbook): void {
-  const sheet = workbook.getWorksheet("ACTIVITIES_DB");
+  const sheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("ACTIVITIES_DB");
   if (!sheet) return;
-  const table = sheet.getTable("ActivitiesTable");
+  const table: ExcelScript.Table | undefined = sheet.getTable("ActivitiesTable");
   if (!table) return;
 
-  const activities = [
+  const activities: (string | boolean)[][] = [
     ["A001", "Development", true],
     ["A002", "Design", true],
     ["A003", "Testing", true],
@@ -57,12 +56,12 @@ function populateActivities(workbook: ExcelScript.Workbook): void {
 }
 
 function populateProjects(workbook: ExcelScript.Workbook): void {
-  const sheet = workbook.getWorksheet("PROJECTS_DB");
+  const sheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("PROJECTS_DB");
   if (!sheet) return;
-  const table = sheet.getTable("ProjectsTable");
+  const table: ExcelScript.Table | undefined = sheet.getTable("ProjectsTable");
   if (!table) return;
 
-  const projects = [
+  const projects: (string | boolean)[][] = [
     ["P001", "Website Redesign", "T004", true],
     ["P002", "API Platform", "T003", true],
     ["P003", "Mobile App", "T001", true],
@@ -76,31 +75,25 @@ function populateProjects(workbook: ExcelScript.Workbook): void {
 }
 
 function populateUsers(workbook: ExcelScript.Workbook): void {
-  const sheet = workbook.getWorksheet("USERS_DB");
+  const sheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("USERS_DB");
   if (!sheet) return;
-  const table = sheet.getTable("UsersTable");
+  const table: ExcelScript.Table | undefined = sheet.getTable("UsersTable");
   if (!table) return;
 
-  // Password for all sample users is "Pass1234" — hash computed by simpleHash()
-  const pwd = simpleHash("Pass1234");
+  const pwd: string = simpleHash("Pass1234");
 
   const users: (string | boolean)[][] = [
-    // Admins (1)
     ["U001", "Alice Admin", "alice.admin", pwd, "Admin", "", "T001", true],
-    // Directors (2)
     ["U002", "Bob Director", "bob.director", pwd, "Director", "U001", "T001", true],
     ["U003", "Carol Director", "carol.director", pwd, "Director", "U001", "T002", true],
-    // Managers (4)
     ["U004", "Dave Manager", "dave.manager", pwd, "Manager", "U002", "T003", true],
     ["U005", "Eve Manager", "eve.manager", pwd, "Manager", "U002", "T004", true],
     ["U006", "Frank Manager", "frank.manager", pwd, "Manager", "U003", "T002", true],
     ["U007", "Grace Manager", "grace.manager", pwd, "Manager", "U003", "T002", true],
-    // Team Leads (4)
     ["U008", "Hank TeamLead", "hank.teamlead", pwd, "TeamLead", "U004", "T003", true],
     ["U009", "Ivy TeamLead", "ivy.teamlead", pwd, "TeamLead", "U005", "T004", true],
     ["U010", "Jack TeamLead", "jack.teamlead", pwd, "TeamLead", "U006", "T002", true],
     ["U011", "Kate TeamLead", "kate.teamlead", pwd, "TeamLead", "U007", "T002", true],
-    // Employees (14)
     ["U012", "Leo Employee", "leo.employee", pwd, "Employee", "U008", "T003", true],
     ["U013", "Mia Employee", "mia.employee", pwd, "Employee", "U008", "T003", true],
     ["U014", "Noah Employee", "noah.employee", pwd, "Employee", "U008", "T003", true],
@@ -123,56 +116,48 @@ function populateUsers(workbook: ExcelScript.Workbook): void {
 }
 
 function populateTimeEntries(workbook: ExcelScript.Workbook): void {
-  const sheet = workbook.getWorksheet("TIME_ENTRY");
+  const sheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("TIME_ENTRY");
   if (!sheet) return;
-  const table = sheet.getTable("TimeEntryTable");
+  const table: ExcelScript.Table | undefined = sheet.getTable("TimeEntryTable");
   if (!table) return;
 
-  // Get user data for names and teams
-  const allUsers = getAllUsers(workbook);
-  const projects = ["Website Redesign", "API Platform", "Mobile App", "Data Pipeline", "Brand Refresh"];
-  const activities = ["Development", "Design", "Testing", "Planning", "Client Meeting", "Admin"];
+  const allUsers: UserRow[] = getAllUsers(workbook);
+  const projects: string[] = ["Website Redesign", "API Platform", "Mobile App", "Data Pipeline", "Brand Refresh"];
+  const activities: string[] = ["Development", "Design", "Testing", "Planning", "Client Meeting", "Admin"];
 
-  // Generate 3 weeks of sample data ending this week
-  const today = new Date();
-  const currentWeekStart = getWeekStart(today);
+  const today: Date = new Date();
+  const currentWeekStart: Date = getWeekStart(today);
 
-  // Start 2 weeks before current week (3 weeks total)
-  const startDate = new Date(currentWeekStart);
+  const startDate: Date = new Date(currentWeekStart);
   startDate.setDate(startDate.getDate() - 14);
 
-  let entryCount = 0;
+  let entryCount: number = 0;
 
   for (const user of allUsers) {
-    // Only employees and team leads log time in sample data
     if (user.role === "Admin" || user.role === "Director") continue;
 
-    const teamName = getTeamName(workbook, user.teamID);
+    const teamName: string = getTeamName(workbook, user.teamID);
 
-    // For each of 3 weeks
-    for (let week = 0; week < 3; week++) {
-      const weekStart = new Date(startDate);
+    for (let week: number = 0; week < 3; week++) {
+      const weekStart: Date = new Date(startDate);
       weekStart.setDate(weekStart.getDate() + week * 7);
 
-      // For each weekday (Mon–Fri)
-      for (let day = 0; day < 5; day++) {
-        const entryDate = new Date(weekStart);
+      for (let day: number = 0; day < 5; day++) {
+        const entryDate: Date = new Date(weekStart);
         entryDate.setDate(weekStart.getDate() + day);
 
-        // Skip future dates
         if (entryDate > today) continue;
 
-        const dateStr = formatDate(entryDate);
+        const dateStr: string = formatDate(entryDate);
 
-        // Each person logs 1–2 entries per day totaling ~8h
-        const proj1 = projects[entryCount % projects.length];
-        const act1 = activities[entryCount % activities.length];
-        const hours1 = 5 + (entryCount % 3); // 5, 6, or 7 hours
-        const hours2 = 8 - hours1 + (entryCount % 2); // fill to 8 or 9
+        const proj1: string = projects[entryCount % projects.length];
+        const act1: string = activities[entryCount % activities.length];
+        const hours1: number = 5 + (entryCount % 3);
+        const hours2: number = 8 - hours1 + (entryCount % 2);
 
         entryCount++;
-        const id1 = `TE-INIT-${String(entryCount).padStart(5, "0")}`;
-        const ts = entryDate.toISOString();
+        const id1: string = `TE-INIT-${String(entryCount).padStart(5, "0")}`;
+        const ts: string = entryDate.toISOString();
 
         table.addRow(-1, [
           id1, dateStr, user.userID, user.fullName, teamName,
@@ -182,9 +167,9 @@ function populateTimeEntries(workbook: ExcelScript.Workbook): void {
 
         if (hours2 > 0 && hours2 <= 16) {
           entryCount++;
-          const id2 = `TE-INIT-${String(entryCount).padStart(5, "0")}`;
-          const proj2 = projects[(entryCount + 2) % projects.length];
-          const act2 = activities[(entryCount + 1) % activities.length];
+          const id2: string = `TE-INIT-${String(entryCount).padStart(5, "0")}`;
+          const proj2: string = projects[(entryCount + 2) % projects.length];
+          const act2: string = activities[(entryCount + 1) % activities.length];
 
           table.addRow(-1, [
             id2, dateStr, user.userID, user.fullName, teamName,
