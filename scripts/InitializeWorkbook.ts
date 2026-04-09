@@ -1,22 +1,110 @@
 /**
  * InitializeWorkbook.ts — Populates all DB tables with sample data.
  * Run ONCE after creating the workbook structure.
- * Creates 25 users, 5 projects, 6 activities, 4 teams, and 3 weeks of time entries.
+ * Self-contained: includes all helper functions and types needed.
  */
 
-function initializeWorkbook(workbook: ExcelScript.Workbook): void {
+function main(workbook: ExcelScript.Workbook): void {
   populateTeams(workbook);
   populateActivities(workbook);
   populateProjects(workbook);
   populateUsers(workbook);
   populateTimeEntries(workbook);
 
-  hideAllWorksheets(workbook);
+  // Hide DB sheets and show only LOGIN + README
+  const alwaysVisible: string[] = ["LOGIN", "README"];
+  const sheets: ExcelScript.Worksheet[] = workbook.getWorksheets();
+  for (const s of sheets) {
+    const nm: string = s.getName();
+    if (alwaysVisible.includes(nm)) {
+      s.setVisibility(ExcelScript.SheetVisibility.visible);
+    } else {
+      s.setVisibility(ExcelScript.SheetVisibility.hidden);
+    }
+  }
+  workbook.getWorksheet("LOGIN")?.activate();
 
   const readmeSheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("README");
   if (readmeSheet) readmeSheet.setVisibility(ExcelScript.SheetVisibility.visible);
 }
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+interface UserRow {
+  userID: string;
+  fullName: string;
+  username: string;
+  passwordHash: string;
+  role: string;
+  managerID: string;
+  teamID: string;
+  active: boolean;
+}
+
+// ── Hash ──────────────────────────────────────────────────────────────────────
+function simpleHash(input: string): string {
+  const saltVal: string = "LG_TimeTrack_2026";
+  const salted: string = saltVal + input + saltVal;
+  let h1: number = 0xdeadbeef;
+  let h2: number = 0x41c6ce57;
+  for (let i: number = 0; i < salted.length; i++) {
+    const ch: number = salted.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  const combined: number = 4294967296 * (2097151 & h2) + (h1 >>> 0);
+  return combined.toString(16).padStart(16, "0");
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function getAllUsersLocal(workbook: ExcelScript.Workbook): UserRow[] {
+  const sheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("USERS_DB");
+  if (!sheet) return [];
+  const table: ExcelScript.Table | undefined = sheet.getTable("UsersTable");
+  if (!table) return [];
+  const rows: (string | number | boolean)[][] = table.getRangeBetweenHeaderAndTotal().getValues();
+  return rows.map((r: (string | number | boolean)[]): UserRow => ({
+    userID: String(r[0]),
+    fullName: String(r[1]),
+    username: String(r[2]),
+    passwordHash: String(r[3]),
+    role: String(r[4]),
+    managerID: String(r[5]),
+    teamID: String(r[6]),
+    active: Boolean(r[7]),
+  }));
+}
+
+function getTeamNameLocal(workbook: ExcelScript.Workbook, teamID: string): string {
+  const sheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("TEAMS_DB");
+  if (!sheet) return "";
+  const table: ExcelScript.Table | undefined = sheet.getTable("TeamsTable");
+  if (!table) return "";
+  const rows: (string | number | boolean)[][] = table.getRangeBetweenHeaderAndTotal().getValues();
+  for (const r of rows) {
+    if (String(r[0]) === teamID) return String(r[1]);
+  }
+  return "";
+}
+
+function getWeekStartLocal(d: Date): Date {
+  const result: Date = new Date(d);
+  const dayNum: number = result.getDay();
+  const diff: number = result.getDate() - dayNum + (dayNum === 0 ? -6 : 1);
+  result.setDate(diff);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+function formatDateLocal(d: Date): string {
+  const y: number = d.getFullYear();
+  const m: string = String(d.getMonth() + 1).padStart(2, "0");
+  const day: string = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// ── Populate Functions ────────────────────────────────────────────────────────
 function populateTeams(workbook: ExcelScript.Workbook): void {
   const sheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("TEAMS_DB");
   if (!sheet) return;
@@ -121,12 +209,12 @@ function populateTimeEntries(workbook: ExcelScript.Workbook): void {
   const table: ExcelScript.Table | undefined = sheet.getTable("TimeEntryTable");
   if (!table) return;
 
-  const allUsers: UserRow[] = getAllUsers(workbook);
-  const projects: string[] = ["Website Redesign", "API Platform", "Mobile App", "Data Pipeline", "Brand Refresh"];
-  const activities: string[] = ["Development", "Design", "Testing", "Planning", "Client Meeting", "Admin"];
+  const allUsers: UserRow[] = getAllUsersLocal(workbook);
+  const projectNames: string[] = ["Website Redesign", "API Platform", "Mobile App", "Data Pipeline", "Brand Refresh"];
+  const activityNames: string[] = ["Development", "Design", "Testing", "Planning", "Client Meeting", "Admin"];
 
   const today: Date = new Date();
-  const currentWeekStart: Date = getWeekStart(today);
+  const currentWeekStart: Date = getWeekStartLocal(today);
 
   const startDate: Date = new Date(currentWeekStart);
   startDate.setDate(startDate.getDate() - 14);
@@ -136,7 +224,7 @@ function populateTimeEntries(workbook: ExcelScript.Workbook): void {
   for (const user of allUsers) {
     if (user.role === "Admin" || user.role === "Director") continue;
 
-    const teamName: string = getTeamName(workbook, user.teamID);
+    const teamName: string = getTeamNameLocal(workbook, user.teamID);
 
     for (let week: number = 0; week < 3; week++) {
       const weekStart: Date = new Date(startDate);
@@ -148,10 +236,10 @@ function populateTimeEntries(workbook: ExcelScript.Workbook): void {
 
         if (entryDate > today) continue;
 
-        const dateStr: string = formatDate(entryDate);
+        const dateStr: string = formatDateLocal(entryDate);
 
-        const proj1: string = projects[entryCount % projects.length];
-        const act1: string = activities[entryCount % activities.length];
+        const proj1: string = projectNames[entryCount % projectNames.length];
+        const act1: string = activityNames[entryCount % activityNames.length];
         const hours1: number = 5 + (entryCount % 3);
         const hours2: number = 8 - hours1 + (entryCount % 2);
 
@@ -168,8 +256,8 @@ function populateTimeEntries(workbook: ExcelScript.Workbook): void {
         if (hours2 > 0 && hours2 <= 16) {
           entryCount++;
           const id2: string = `TE-INIT-${String(entryCount).padStart(5, "0")}`;
-          const proj2: string = projects[(entryCount + 2) % projects.length];
-          const act2: string = activities[(entryCount + 1) % activities.length];
+          const proj2: string = projectNames[(entryCount + 2) % projectNames.length];
+          const act2: string = activityNames[(entryCount + 1) % activityNames.length];
 
           table.addRow(-1, [
             id2, dateStr, user.userID, user.fullName, teamName,

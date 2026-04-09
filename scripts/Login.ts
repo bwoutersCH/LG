@@ -1,8 +1,54 @@
 /**
  * Login.ts — Handles user authentication and session management.
- * Linked to the "Log in" and "Log out" buttons on the LOGIN sheet.
+ * Self-contained Office Script. Entry point: main()
+ *
+ * Contains two modes — set the ACTION cell (B8) to "login" or "logout"
+ * before running, or call via button assignment.
+ *
+ * For button use, create separate scripts that call runLogin / runLogout directly.
  */
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+interface UserRow {
+  userID: string;
+  fullName: string;
+  username: string;
+  passwordHash: string;
+  role: string;
+  managerID: string;
+  teamID: string;
+  active: boolean;
+}
+
+interface SessionData {
+  userID: string;
+  username: string;
+  role: string;
+  managerID: string;
+  loginTime: string;
+}
+
+interface TimeEntryRow {
+  entryID: string;
+  date: string;
+  employeeID: string;
+  employeeName: string;
+  team: string;
+  project: string;
+  activity: string;
+  hours: number;
+  notes: string;
+  submittedOn: string;
+  lastEditedBy: string;
+  lastEditedOn: string;
+}
+
+// ── Entry Point ───────────────────────────────────────────────────────────────
+function main(workbook: ExcelScript.Workbook): void {
+  runLogin(workbook);
+}
+
+// ── Login ─────────────────────────────────────────────────────────────────────
 function runLogin(workbook: ExcelScript.Workbook): void {
   const loginSheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("LOGIN");
   if (!loginSheet) return;
@@ -66,6 +112,7 @@ function runLogin(workbook: ExcelScript.Workbook): void {
   refreshDailyCheck(workbook, sessionData);
 }
 
+// ── Logout ────────────────────────────────────────────────────────────────────
 function runLogout(workbook: ExcelScript.Workbook): void {
   clearSession(workbook);
   hideAllWorksheets(workbook);
@@ -79,6 +126,7 @@ function runLogout(workbook: ExcelScript.Workbook): void {
   }
 }
 
+// ── Daily Check Refresh ───────────────────────────────────────────────────────
 function refreshDailyCheck(workbook: ExcelScript.Workbook, session: SessionData): void {
   const checkSheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("DAILY_CHECK");
   if (!checkSheet) return;
@@ -127,4 +175,166 @@ function refreshDailyCheck(workbook: ExcelScript.Workbook, session: SessionData)
   checkSheet.getRange("A8:C8").getFormat().getFont().setBold(true);
 
   checkSheet.getRange("A1").setValue(`Weekly Hours — ${session.username} — Week of ${formatDate(weekStart)}`);
+}
+
+// ── Shared Utilities (duplicated for self-containment) ────────────────────────
+function simpleHash(input: string): string {
+  const saltVal: string = "LG_TimeTrack_2026";
+  const salted: string = saltVal + input + saltVal;
+  let h1: number = 0xdeadbeef;
+  let h2: number = 0x41c6ce57;
+  for (let i: number = 0; i < salted.length; i++) {
+    const ch: number = salted.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  const combined: number = 4294967296 * (2097151 & h2) + (h1 >>> 0);
+  return combined.toString(16).padStart(16, "0");
+}
+
+function getSession(workbook: ExcelScript.Workbook): SessionData | null {
+  const sheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("SESSION");
+  if (!sheet) return null;
+  const table: ExcelScript.Table | undefined = sheet.getTable("SessionTable");
+  if (!table) return null;
+  const rows: (string | number | boolean)[][] = table.getRangeBetweenHeaderAndTotal().getValues();
+  if (rows.length === 0 || !rows[0][0]) return null;
+  return {
+    userID: String(rows[0][0]),
+    username: String(rows[0][1]),
+    role: String(rows[0][2]),
+    managerID: String(rows[0][3]),
+    loginTime: String(rows[0][4]),
+  };
+}
+
+function writeSession(workbook: ExcelScript.Workbook, data: SessionData): void {
+  const sheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("SESSION");
+  if (!sheet) return;
+  const table: ExcelScript.Table | undefined = sheet.getTable("SessionTable");
+  if (!table) return;
+  const body: ExcelScript.Range = table.getRangeBetweenHeaderAndTotal();
+  if (body.getRowCount() > 0) {
+    body.delete(ExcelScript.DeleteShiftDirection.up);
+  }
+  table.addRow(-1, [data.userID, data.username, data.role, data.managerID, data.loginTime]);
+}
+
+function clearSession(workbook: ExcelScript.Workbook): void {
+  const sheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("SESSION");
+  if (!sheet) return;
+  const table: ExcelScript.Table | undefined = sheet.getTable("SessionTable");
+  if (!table) return;
+  const body: ExcelScript.Range = table.getRangeBetweenHeaderAndTotal();
+  if (body.getRowCount() > 0) {
+    body.delete(ExcelScript.DeleteShiftDirection.up);
+  }
+}
+
+function getAllUsers(workbook: ExcelScript.Workbook): UserRow[] {
+  const sheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("USERS_DB");
+  if (!sheet) return [];
+  const table: ExcelScript.Table | undefined = sheet.getTable("UsersTable");
+  if (!table) return [];
+  const rows: (string | number | boolean)[][] = table.getRangeBetweenHeaderAndTotal().getValues();
+  return rows.map((r: (string | number | boolean)[]): UserRow => ({
+    userID: String(r[0]),
+    fullName: String(r[1]),
+    username: String(r[2]),
+    passwordHash: String(r[3]),
+    role: String(r[4]),
+    managerID: String(r[5]),
+    teamID: String(r[6]),
+    active: Boolean(r[7]),
+  }));
+}
+
+function findUserByUsername(users: UserRow[], username: string): UserRow | undefined {
+  const lower: string = username.toLowerCase();
+  return users.find((u: UserRow): boolean => u.username.toLowerCase() === lower && u.active);
+}
+
+function getAllTimeEntries(workbook: ExcelScript.Workbook): TimeEntryRow[] {
+  const sheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("TIME_ENTRY");
+  if (!sheet) return [];
+  const table: ExcelScript.Table | undefined = sheet.getTable("TimeEntryTable");
+  if (!table) return [];
+  const rows: (string | number | boolean)[][] = table.getRangeBetweenHeaderAndTotal().getValues();
+  return rows.map((r: (string | number | boolean)[]): TimeEntryRow => ({
+    entryID: String(r[0]),
+    date: String(r[1]),
+    employeeID: String(r[2]),
+    employeeName: String(r[3]),
+    team: String(r[4]),
+    project: String(r[5]),
+    activity: String(r[6]),
+    hours: Number(r[7]),
+    notes: String(r[8]),
+    submittedOn: String(r[9]),
+    lastEditedBy: String(r[10]),
+    lastEditedOn: String(r[11]),
+  }));
+}
+
+function getRoleLevel(role: string): number {
+  const levels: Record<string, number> = { Admin: 0, Director: 1, Manager: 2, TeamLead: 3, Employee: 4 };
+  return levels[role] ?? 4;
+}
+
+function getWeekStart(d: Date): Date {
+  const result: Date = new Date(d);
+  const dayNum: number = result.getDay();
+  const diff: number = result.getDate() - dayNum + (dayNum === 0 ? -6 : 1);
+  result.setDate(diff);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+function formatDate(d: Date): string {
+  const y: number = d.getFullYear();
+  const m: string = String(d.getMonth() + 1).padStart(2, "0");
+  const day: string = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function parseExcelDate(value: string | number | boolean): Date {
+  if (typeof value === "number") {
+    const epoch: Date = new Date(1899, 11, 30);
+    epoch.setDate(epoch.getDate() + value);
+    return epoch;
+  }
+  return new Date(String(value));
+}
+
+function hideAllWorksheets(workbook: ExcelScript.Workbook): void {
+  const alwaysVisible: string[] = ["LOGIN", "README"];
+  const sheets: ExcelScript.Worksheet[] = workbook.getWorksheets();
+  for (const s of sheets) {
+    const nm: string = s.getName();
+    if (alwaysVisible.includes(nm)) {
+      s.setVisibility(ExcelScript.SheetVisibility.visible);
+    } else {
+      s.setVisibility(ExcelScript.SheetVisibility.hidden);
+    }
+  }
+  workbook.getWorksheet("LOGIN")?.activate();
+}
+
+function showSheetsForRole(workbook: ExcelScript.Workbook, role: string): void {
+  const roleLevel: number = getRoleLevel(role);
+  const visibleSheets: string[] = ["TIME_ENTRY", "DAILY_CHECK"];
+  if (roleLevel <= 3) visibleSheets.push("MANAGER_VIEW");
+  if (roleLevel <= 2) visibleSheets.push("REPORTS");
+  if (roleLevel === 0) visibleSheets.push("ADMIN", "USERS_DB", "PROJECTS_DB", "ACTIVITIES_DB", "TEAMS_DB");
+  visibleSheets.push("README");
+
+  for (const name of visibleSheets) {
+    const ws: ExcelScript.Worksheet | undefined = workbook.getWorksheet(name);
+    if (ws) ws.setVisibility(ExcelScript.SheetVisibility.visible);
+  }
+  const loginSheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("LOGIN");
+  if (loginSheet) loginSheet.setVisibility(ExcelScript.SheetVisibility.hidden);
+  workbook.getWorksheet("TIME_ENTRY")?.activate();
 }
