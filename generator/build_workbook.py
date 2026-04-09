@@ -119,7 +119,7 @@ def build_session(wb):
     for c in range(1, len(SESSION_HEADERS) + 1):
         ws.cell(row=2, column=c, value="")
     create_table(ws, "SessionTable", ref)
-    ws.protection = SheetProtection(sheet=True, password=SHEET_PASSWORD)
+    # No sheet protection — Office Scripts must read/write this sheet
     ws.sheet_state = "hidden"
     return ws
 
@@ -132,7 +132,7 @@ def build_users_db(wb):
     end_row = write_data_rows(ws, 2, USERS, len(USER_HEADERS), text_columns={3})
     ref = f"A1:{get_column_letter(len(USER_HEADERS))}{end_row}"
     create_table(ws, "UsersTable", ref)
-    ws.protection = SheetProtection(sheet=True, password=SHEET_PASSWORD)
+    # No sheet protection — Office Scripts must read/write this sheet
     ws.sheet_state = "hidden"
     return ws
 
@@ -144,7 +144,6 @@ def build_projects_db(wb):
     end_row = write_data_rows(ws, 2, PROJECTS, len(PROJECT_HEADERS))
     ref = f"A1:{get_column_letter(len(PROJECT_HEADERS))}{end_row}"
     create_table(ws, "ProjectsTable", ref)
-    ws.protection = SheetProtection(sheet=True, password=SHEET_PASSWORD)
     ws.sheet_state = "hidden"
     return ws
 
@@ -156,7 +155,6 @@ def build_activities_db(wb):
     end_row = write_data_rows(ws, 2, ACTIVITIES, len(ACTIVITY_HEADERS))
     ref = f"A1:{get_column_letter(len(ACTIVITY_HEADERS))}{end_row}"
     create_table(ws, "ActivitiesTable", ref)
-    ws.protection = SheetProtection(sheet=True, password=SHEET_PASSWORD)
     ws.sheet_state = "hidden"
     return ws
 
@@ -168,7 +166,6 @@ def build_teams_db(wb):
     end_row = write_data_rows(ws, 2, TEAMS, len(TEAM_HEADERS))
     ref = f"A1:{get_column_letter(len(TEAM_HEADERS))}{end_row}"
     create_table(ws, "TeamsTable", ref)
-    ws.protection = SheetProtection(sheet=True, password=SHEET_PASSWORD)
     ws.sheet_state = "hidden"
     return ws
 
