@@ -191,17 +191,15 @@ def build_time_entry(wb):
     # Set today's date as default
     ws.cell(row=2, column=2, value=date.today().isoformat())
 
-    # Data validation for Project dropdown
-    proj_list = ",".join(PROJECT_NAMES)
-    dv_proj = DataValidation(type="list", formula1=f'"{proj_list}"', allow_blank=False)
+    # Data validation for Project dropdown — references ProjectsTable dynamically
+    dv_proj = DataValidation(type="list", formula1="=INDIRECT(\"ProjectsTable[ProjectName]\")", allow_blank=False)
     dv_proj.error = "Select a project from the list"
     dv_proj.errorTitle = "Invalid Project"
     ws.add_data_validation(dv_proj)
     dv_proj.add(ws["B3"])
 
-    # Data validation for Activity dropdown
-    act_list = ",".join(ACTIVITY_NAMES)
-    dv_act = DataValidation(type="list", formula1=f'"{act_list}"', allow_blank=False)
+    # Data validation for Activity dropdown — references ActivitiesTable dynamically
+    dv_act = DataValidation(type="list", formula1="=INDIRECT(\"ActivitiesTable[ActivityName]\")", allow_blank=False)
     dv_act.error = "Select an activity from the list"
     dv_act.errorTitle = "Invalid Activity"
     ws.add_data_validation(dv_act)
