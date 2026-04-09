@@ -48,8 +48,16 @@ interface UserRow {
 function clearTableBody(table: ExcelScript.Table): void {
   const rowCount: number = table.getRowCount();
   if (rowCount > 0) {
-    table.deleteRowsAt(0, rowCount);
+    // Use range delete instead of table.deleteRowsAt which can fail on
+    // tables created externally (e.g. by openpyxl)
+    const body: ExcelScript.Range = table.getRangeBetweenHeaderAndTotal();
+    body.delete(ExcelScript.DeleteShiftDirection.up);
   }
+}
+
+// ── Helper: skip if table already has data ────────────────────────────────────
+function tableHasData(table: ExcelScript.Table): boolean {
+  return table.getRowCount() > 0;
 }
 
 // ── Hash ──────────────────────────────────────────────────────────────────────
@@ -122,8 +130,7 @@ function populateTeams(workbook: ExcelScript.Workbook): void {
   if (!sheet) return;
   const table: ExcelScript.Table | undefined = sheet.getTable("TeamsTable");
   if (!table) return;
-
-  clearTableBody(table);
+  if (tableHasData(table)) return; // Already populated
 
   const rows: (string | number | boolean)[][] = [
     ["T001", "Engineering", "", "U002"],
@@ -142,8 +149,7 @@ function populateActivities(workbook: ExcelScript.Workbook): void {
   if (!sheet) return;
   const table: ExcelScript.Table | undefined = sheet.getTable("ActivitiesTable");
   if (!table) return;
-
-  clearTableBody(table);
+  if (tableHasData(table)) return; // Already populated
 
   const rows: (string | number | boolean)[][] = [
     ["A001", "Development", true],
@@ -164,8 +170,7 @@ function populateProjects(workbook: ExcelScript.Workbook): void {
   if (!sheet) return;
   const table: ExcelScript.Table | undefined = sheet.getTable("ProjectsTable");
   if (!table) return;
-
-  clearTableBody(table);
+  if (tableHasData(table)) return; // Already populated
 
   const rows: (string | number | boolean)[][] = [
     ["P001", "Website Redesign", "T004", true],
@@ -185,8 +190,7 @@ function populateUsers(workbook: ExcelScript.Workbook): void {
   if (!sheet) return;
   const table: ExcelScript.Table | undefined = sheet.getTable("UsersTable");
   if (!table) return;
-
-  clearTableBody(table);
+  if (tableHasData(table)) return; // Already populated
 
   const pwd: string = simpleHash("Pass1234");
 
@@ -228,8 +232,7 @@ function populateTimeEntries(workbook: ExcelScript.Workbook): void {
   if (!sheet) return;
   const table: ExcelScript.Table | undefined = sheet.getTable("TimeEntryTable");
   if (!table) return;
-
-  clearTableBody(table);
+  if (tableHasData(table)) return; // Already populated
 
   const allUsers: UserRow[] = getAllUsersLocal(workbook);
   const projectNames: string[] = ["Website Redesign", "API Platform", "Mobile App", "Data Pipeline", "Brand Refresh"];
