@@ -2,6 +2,10 @@
  * InitializeWorkbook.ts — Populates all DB tables with sample data.
  * Run ONCE after creating the workbook structure.
  * Self-contained: includes all helper functions and types needed.
+ *
+ * NOTE: The .xlsx file is pre-loaded with sample data by the Python generator.
+ * Only run this script if you need to RE-populate from scratch.
+ * It will clear existing table data before inserting.
  */
 
 function main(workbook: ExcelScript.Workbook): void {
@@ -38,6 +42,14 @@ interface UserRow {
   managerID: string;
   teamID: string;
   active: boolean;
+}
+
+// ── Helper: clear table body safely ───────────────────────────────────────────
+function clearTableBody(table: ExcelScript.Table): void {
+  const rowCount: number = table.getRowCount();
+  if (rowCount > 0) {
+    table.deleteRowsAt(0, rowCount);
+  }
 }
 
 // ── Hash ──────────────────────────────────────────────────────────────────────
@@ -111,15 +123,17 @@ function populateTeams(workbook: ExcelScript.Workbook): void {
   const table: ExcelScript.Table | undefined = sheet.getTable("TeamsTable");
   if (!table) return;
 
-  const teams: string[][] = [
+  clearTableBody(table);
+
+  const rows: (string | number | boolean)[][] = [
     ["T001", "Engineering", "", "U002"],
     ["T002", "Design", "", "U003"],
     ["T003", "Backend", "T001", "U004"],
     ["T004", "Frontend", "T001", "U005"],
   ];
 
-  for (const t of teams) {
-    table.addRow(-1, t);
+  for (const row of rows) {
+    table.addRow(-1, row);
   }
 }
 
@@ -129,7 +143,9 @@ function populateActivities(workbook: ExcelScript.Workbook): void {
   const table: ExcelScript.Table | undefined = sheet.getTable("ActivitiesTable");
   if (!table) return;
 
-  const activities: (string | boolean)[][] = [
+  clearTableBody(table);
+
+  const rows: (string | number | boolean)[][] = [
     ["A001", "Development", true],
     ["A002", "Design", true],
     ["A003", "Testing", true],
@@ -138,8 +154,8 @@ function populateActivities(workbook: ExcelScript.Workbook): void {
     ["A006", "Admin", true],
   ];
 
-  for (const a of activities) {
-    table.addRow(-1, a);
+  for (const row of rows) {
+    table.addRow(-1, row);
   }
 }
 
@@ -149,7 +165,9 @@ function populateProjects(workbook: ExcelScript.Workbook): void {
   const table: ExcelScript.Table | undefined = sheet.getTable("ProjectsTable");
   if (!table) return;
 
-  const projects: (string | boolean)[][] = [
+  clearTableBody(table);
+
+  const rows: (string | number | boolean)[][] = [
     ["P001", "Website Redesign", "T004", true],
     ["P002", "API Platform", "T003", true],
     ["P003", "Mobile App", "T001", true],
@@ -157,8 +175,8 @@ function populateProjects(workbook: ExcelScript.Workbook): void {
     ["P005", "Brand Refresh", "T002", true],
   ];
 
-  for (const p of projects) {
-    table.addRow(-1, p);
+  for (const row of rows) {
+    table.addRow(-1, row);
   }
 }
 
@@ -168,9 +186,11 @@ function populateUsers(workbook: ExcelScript.Workbook): void {
   const table: ExcelScript.Table | undefined = sheet.getTable("UsersTable");
   if (!table) return;
 
+  clearTableBody(table);
+
   const pwd: string = simpleHash("Pass1234");
 
-  const users: (string | boolean)[][] = [
+  const rows: (string | boolean)[][] = [
     ["U001", "Alice Admin", "alice.admin", pwd, "Admin", "", "T001", true],
     ["U002", "Bob Director", "bob.director", pwd, "Director", "U001", "T001", true],
     ["U003", "Carol Director", "carol.director", pwd, "Director", "U001", "T002", true],
@@ -198,8 +218,8 @@ function populateUsers(workbook: ExcelScript.Workbook): void {
     ["U025", "Yara Employee", "yara.employee", pwd, "Employee", "U006", "T002", true],
   ];
 
-  for (const u of users) {
-    table.addRow(-1, u);
+  for (const row of rows) {
+    table.addRow(-1, row);
   }
 }
 
@@ -208,6 +228,8 @@ function populateTimeEntries(workbook: ExcelScript.Workbook): void {
   if (!sheet) return;
   const table: ExcelScript.Table | undefined = sheet.getTable("TimeEntryTable");
   if (!table) return;
+
+  clearTableBody(table);
 
   const allUsers: UserRow[] = getAllUsersLocal(workbook);
   const projectNames: string[] = ["Website Redesign", "API Platform", "Mobile App", "Data Pipeline", "Brand Refresh"];
