@@ -53,12 +53,17 @@ def write_headers(ws, row, headers):
     style_header_row(ws, row, len(headers))
 
 
-def write_data_rows(ws, start_row, data, max_col):
+def write_data_rows(ws, start_row, data, max_col, text_columns=None):
+    """Write data rows. text_columns is a set of 0-based column indices to force as text."""
+    if text_columns is None:
+        text_columns = set()
     for r_idx, row_data in enumerate(data):
         row_num = start_row + r_idx
         for c_idx, val in enumerate(row_data):
             cell = ws.cell(row=row_num, column=c_idx + 1, value=val)
             cell.font = BODY_FONT
+            if c_idx in text_columns:
+                cell.number_format = '@'
             cell.border = THIN_BORDER
             fill = LIGHT_BLUSH_FILL if r_idx % 2 == 1 else WHITE_FILL
             cell.fill = fill
@@ -123,7 +128,8 @@ def build_users_db(wb):
     ws = wb.create_sheet("USERS_DB")
     write_headers(ws, 1, USER_HEADERS)
     set_col_widths(ws, [10, 22, 22, 20, 12, 12, 10, 8])
-    end_row = write_data_rows(ws, 2, USERS, len(USER_HEADERS))
+    # Column 3 (PasswordHash) must be forced to text so Excel doesn't mangle it
+    end_row = write_data_rows(ws, 2, USERS, len(USER_HEADERS), text_columns={3})
     ref = f"A1:{get_column_letter(len(USER_HEADERS))}{end_row}"
     create_table(ws, "UsersTable", ref)
     ws.protection = SheetProtection(sheet=True, password=SHEET_PASSWORD)

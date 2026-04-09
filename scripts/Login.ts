@@ -76,8 +76,11 @@ function runLogin(workbook: ExcelScript.Workbook): void {
   }
 
   const inputHash: string = simpleHash(password);
-  if (inputHash !== user.passwordHash) {
-    msgCell.setValue("Invalid username or password.");
+  // Normalize both hashes to string for comparison (Excel may store hash as number)
+  const storedHash: string = String(user.passwordHash).trim();
+  const computedHash: string = String(inputHash).trim();
+  if (computedHash !== storedHash) {
+    msgCell.setValue(`Invalid username or password. Debug: stored=[${storedHash}] computed=[${computedHash}]`);
     msgCell.getFormat().getFont().setColor("#D9415C");
     loginSheet.getRange("B4").setValue("");
     return;
