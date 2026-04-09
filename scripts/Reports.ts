@@ -90,9 +90,9 @@ function filterManagerView(workbook: ExcelScript.Workbook): void {
   const outputTable: ExcelScript.Table | undefined = sheet.getTable("ManagerViewTable");
   if (!outputTable) return;
 
-  const body: ExcelScript.Range = outputTable.getRangeBetweenHeaderAndTotal();
-  if (body.getRowCount() > 0) {
-    body.delete(ExcelScript.DeleteShiftDirection.up);
+  const bodyRowCount: number = outputTable.getRowCount();
+  if (bodyRowCount > 0) {
+    outputTable.deleteRowsAt(0, bodyRowCount);
   }
 
   for (const entry of filtered) {

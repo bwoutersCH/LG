@@ -46,12 +46,11 @@ interface UserRow {
 
 // ── Helper: clear table body safely ───────────────────────────────────────────
 function clearTableBody(table: ExcelScript.Table): void {
+  // Clear values instead of deleting rows (delete fails inside tables in Excel for Web)
   const rowCount: number = table.getRowCount();
   if (rowCount > 0) {
-    // Use range delete instead of table.deleteRowsAt which can fail on
-    // tables created externally (e.g. by openpyxl)
     const body: ExcelScript.Range = table.getRangeBetweenHeaderAndTotal();
-    body.delete(ExcelScript.DeleteShiftDirection.up);
+    body.clear(ExcelScript.ClearApplyTo.contents);
   }
 }
 

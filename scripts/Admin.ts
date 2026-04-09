@@ -292,7 +292,9 @@ function clearSession(workbook: ExcelScript.Workbook): void {
   const table: ExcelScript.Table | undefined = sheet.getTable("SessionTable");
   if (!table) return;
   const body: ExcelScript.Range = table.getRangeBetweenHeaderAndTotal();
-  if (body.getRowCount() > 0) body.delete(ExcelScript.DeleteShiftDirection.up);
+  if (body.getRowCount() > 0) {
+    body.getRow(0).setValues([["", "", "", "", ""]]);
+  }
 }
 
 function getAllUsers(workbook: ExcelScript.Workbook): UserRow[] {

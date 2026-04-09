@@ -218,11 +218,13 @@ function writeSession(workbook: ExcelScript.Workbook, data: SessionData): void {
   if (!sheet) return;
   const table: ExcelScript.Table | undefined = sheet.getTable("SessionTable");
   if (!table) return;
+  // Overwrite the first row instead of delete+add (delete fails inside tables)
   const body: ExcelScript.Range = table.getRangeBetweenHeaderAndTotal();
   if (body.getRowCount() > 0) {
-    body.delete(ExcelScript.DeleteShiftDirection.up);
+    body.getRow(0).setValues([[data.userID, data.username, data.role, data.managerID, data.loginTime]]);
+  } else {
+    table.addRow(-1, [data.userID, data.username, data.role, data.managerID, data.loginTime]);
   }
-  table.addRow(-1, [data.userID, data.username, data.role, data.managerID, data.loginTime]);
 }
 
 function clearSession(workbook: ExcelScript.Workbook): void {
@@ -230,9 +232,10 @@ function clearSession(workbook: ExcelScript.Workbook): void {
   if (!sheet) return;
   const table: ExcelScript.Table | undefined = sheet.getTable("SessionTable");
   if (!table) return;
+  // Clear values instead of deleting rows
   const body: ExcelScript.Range = table.getRangeBetweenHeaderAndTotal();
   if (body.getRowCount() > 0) {
-    body.delete(ExcelScript.DeleteShiftDirection.up);
+    body.getRow(0).setValues([["", "", "", "", ""]]);
   }
 }
 
