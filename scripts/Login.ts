@@ -341,6 +341,6 @@ function showSheetsForRole(workbook: ExcelScript.Workbook, role: string): void {
     if (ws) ws.setVisibility(ExcelScript.SheetVisibility.visible);
   }
   const loginSheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("LOGIN");
-  if (loginSheet) loginSheet.setVisibility(ExcelScript.SheetVisibility.hidden);
+  // Keep LOGIN visible so users can navigate back to log out
   workbook.getWorksheet("TIME_ENTRY")?.activate();
 }
