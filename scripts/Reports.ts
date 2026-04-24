@@ -90,17 +90,29 @@ function filterManagerView(workbook: ExcelScript.Workbook): void {
   const outputTable: ExcelScript.Table | undefined = sheet.getTable("ManagerViewTable");
   if (!outputTable) return;
 
-  const bodyRowCount: number = outputTable.getRowCount();
-  if (bodyRowCount > 0) {
-    outputTable.deleteRowsAt(0, bodyRowCount);
+  // Clear existing table body content
+  const existingCount: number = outputTable.getRowCount();
+  if (existingCount > 0) {
+    const body: ExcelScript.Range = outputTable.getRangeBetweenHeaderAndTotal();
+    body.clear(ExcelScript.ClearApplyTo.contents);
   }
 
-  for (const entry of filtered) {
-    outputTable.addRow(-1, [
+  // Write filtered data: overwrite row 0, addRow for the rest
+  for (let idx: number = 0; idx < filtered.length; idx++) {
+    const entry: TimeEntryRow = filtered[idx];
+    const rowData: (string | number)[] = [
       entry.entryID, entry.date, entry.employeeID, entry.employeeName,
       entry.team, entry.project, entry.activity, entry.hours,
       entry.notes, entry.submittedOn, entry.lastEditedBy, entry.lastEditedOn,
-    ]);
+    ];
+    if (idx < existingCount) {
+      // Overwrite existing row
+      const body: ExcelScript.Range = outputTable.getRangeBetweenHeaderAndTotal();
+      body.getRow(idx).setValues([rowData]);
+    } else {
+      // Add new row
+      outputTable.addRow(-1, rowData);
+    }
   }
 
   sheet.getRange("A4").setValue(`Showing ${filtered.length} entries for your team.`);
