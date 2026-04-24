@@ -58,8 +58,8 @@ function addEntry(workbook: ExcelScript.Workbook): void {
   const hoursValue: string | number | boolean = sheet.getRange("B5").getValue();
   const notes: string = String(sheet.getRange("B6").getValue()).trim();
 
-  if (!dateValue || !project || !activity || !hoursValue) {
-    msgCell.setValue("Please fill in Date, Project, Activity, and Hours.");
+  if (!dateValue || !project || !hoursValue) {
+    msgCell.setValue("Please fill in Date, Project, and Hours.");
     msgCell.getFormat().getFont().setColor("#D9415C");
     return;
   }

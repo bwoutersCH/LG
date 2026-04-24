@@ -198,8 +198,9 @@ def build_time_entry(wb):
     ws.add_data_validation(dv_proj)
     dv_proj.add(ws["B3"])
 
-    # Data validation for Activity dropdown — references ActivitiesTable dynamically
-    dv_act = DataValidation(type="list", formula1="=INDIRECT(\"ActivitiesTable[ActivityName]\")", allow_blank=False)
+    # Data validation for Activity dropdown — references ActivitiesTable dynamically.
+    # Activity is optional, so allow blank values.
+    dv_act = DataValidation(type="list", formula1="=INDIRECT(\"ActivitiesTable[ActivityName]\")", allow_blank=True)
     dv_act.error = "Select an activity from the list"
     dv_act.errorTitle = "Invalid Activity"
     ws.add_data_validation(dv_act)
