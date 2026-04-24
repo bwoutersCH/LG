@@ -115,6 +115,19 @@ function filterManagerView(workbook: ExcelScript.Workbook): void {
     }
   }
 
+  // Shrink the table back down so future filter runs don't push the
+  // CORRECT ENTRY section further down the sheet.
+  const desiredBodyRows: number = Math.max(filtered.length, 1);
+  const currentBodyRows: number = outputTable.getRangeBetweenHeaderAndTotal().getRowCount();
+  if (desiredBodyRows < currentBodyRows) {
+    const header: ExcelScript.Range = outputTable.getHeaderRowRange();
+    const newRange: ExcelScript.Range = sheet.getRangeByIndexes(
+      header.getRowIndex(), header.getColumnIndex(),
+      desiredBodyRows + 1, header.getColumnCount(),
+    );
+    outputTable.resize(newRange);
+  }
+
   sheet.getRange("A4").setValue(`Showing ${filtered.length} entries for your team.`);
   sheet.getRange("A4").getFormat().getFont().setColor("#239A98");
 }
@@ -131,10 +144,17 @@ function correctEntry(workbook: ExcelScript.Workbook): void {
     return;
   }
 
-  const entryID: string = String(sheet.getRange("B14").getValue()).trim();
-  const correctedHours: number = Number(sheet.getRange("D14").getValue());
-  const reason: string = String(sheet.getRange("F14").getValue()).trim();
-  const msgCell: ExcelScript.Range = sheet.getRange("B16");
+  // filterManagerView may push the CORRECT ENTRY section down when the
+  // ManagerViewTable grows, so find its position dynamically instead of
+  // hard-coding row 14.
+  const sectionRow: number = findCorrectEntryRow(sheet);
+  const inputRow: number = sectionRow + 2;
+  const msgRow: number = sectionRow + 4;
+
+  const entryID: string = String(sheet.getRange(`B${inputRow}`).getValue()).trim();
+  const correctedHours: number = Number(sheet.getRange(`D${inputRow}`).getValue());
+  const reason: string = String(sheet.getRange(`F${inputRow}`).getValue()).trim();
+  const msgCell: ExcelScript.Range = sheet.getRange(`B${msgRow}`);
 
   if (!entryID) { msgCell.setValue("Please enter an Entry ID."); msgCell.getFormat().getFont().setColor("#D9415C"); return; }
   if (!Number.isInteger(correctedHours) || correctedHours < 1 || correctedHours > 16) { msgCell.setValue("Corrected hours must be 1-16."); msgCell.getFormat().getFont().setColor("#D9415C"); return; }
@@ -166,11 +186,23 @@ function correctEntry(workbook: ExcelScript.Workbook): void {
   dataRange.getCell(targetRow, 10).setValue(session.username);
   dataRange.getCell(targetRow, 11).setValue(now);
 
-  sheet.getRange("B14").setValue("");
-  sheet.getRange("D14").setValue("");
-  sheet.getRange("F14").setValue("");
+  sheet.getRange(`B${inputRow}`).setValue("");
+  sheet.getRange(`D${inputRow}`).setValue("");
+  sheet.getRange(`F${inputRow}`).setValue("");
   msgCell.setValue(`Entry ${entryID} corrected to ${correctedHours}h by ${session.username}.`);
   msgCell.getFormat().getFont().setColor("#239A98");
+}
+
+function findCorrectEntryRow(sheet: ExcelScript.Worksheet): number {
+  const used: ExcelScript.Range | undefined = sheet.getUsedRange();
+  if (used) {
+    const found: ExcelScript.Range | undefined = used.find("CORRECT ENTRY", {
+      completeMatch: true, matchCase: true,
+      searchDirection: ExcelScript.SearchDirection.forward,
+    });
+    if (found) return found.getRowIndex() + 1;
+  }
+  return 12;
 }
 
 // ── Generate Report ───────────────────────────────────────────────────────────

@@ -116,6 +116,10 @@ function addEntry(workbook: ExcelScript.Workbook): void {
     return;
   }
 
+  // An active AutoFilter makes addRow fail with "This won't work because it
+  // would move cells in a table". Clear criteria before appending.
+  table.getAutoFilter().clearCriteria();
+
   table.addRow(-1, [
     entryID, dateStr, session.userID, currentUser.fullName, teamName,
     project, activity, hours, notes, now, session.username, now,
