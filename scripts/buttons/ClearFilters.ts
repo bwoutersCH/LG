@@ -233,11 +233,11 @@ function deleteEntry(workbook: ExcelScript.Workbook): void {
   const sheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("TIME_ENTRY");
   if (!sheet) return;
 
-  const entryID: string = String(sheet.getRange("E2").getValue()).trim();
+  const entryID: string = String(sheet.getRange("F2").getValue()).trim();
   const msgCell: ExcelScript.Range = sheet.getRange("D7");
 
   if (!entryID) {
-    msgCell.setValue("Please enter an Entry ID in cell E2 to delete.");
+    msgCell.setValue("Please enter an Entry ID in cell F2 to delete.");
     msgCell.getFormat().getFont().setColor("#D9415C");
     return;
   }
@@ -270,7 +270,7 @@ function deleteEntry(workbook: ExcelScript.Workbook): void {
   }
 
   table.deleteRowsAt(rowIndex, 1);
-  sheet.getRange("E2").setValue("");
+  sheet.getRange("F2").setValue("");
   msgCell.setValue(`Entry ${entryID} deleted.`);
   msgCell.getFormat().getFont().setColor("#239A98");
 
