@@ -387,11 +387,16 @@ function getAllTimeEntries(workbook: ExcelScript.Workbook): TimeEntryRow[] {
   if (!table) return [];
   const rows: (string | number | boolean)[][] = table.getRangeBetweenHeaderAndTotal().getValues();
   return rows.map((r: (string | number | boolean)[]): TimeEntryRow => ({
-    entryID: String(r[0]), date: String(r[1]), employeeID: String(r[2]),
+    entryID: String(r[0]), date: normalizeDateValue(r[1]), employeeID: String(r[2]),
     employeeName: String(r[3]), team: String(r[4]), project: String(r[5]),
     activity: String(r[6]), hours: Number(r[7]), notes: String(r[8]),
     submittedOn: String(r[9]), lastEditedBy: String(r[10]), lastEditedOn: String(r[11]),
   }));
+}
+
+function normalizeDateValue(value: string | number | boolean): string {
+  if (typeof value === "number") return formatDate(parseExcelDate(value));
+  return String(value);
 }
 
 function getSubtreeUserIDs(managerID: string, allUsers: UserRow[]): string[] {
