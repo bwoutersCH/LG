@@ -37,6 +37,7 @@ BUTTONS = [
     # Also include these standalone ones
     ("InitializeWorkbook.ts", "InitializeWorkbook.ts", None),  # already has correct main
     ("RefreshDropdowns.ts", "RefreshDropdowns.ts", None),  # already has correct main
+    ("RecoverWorkbook.ts", "RecoverWorkbook.ts", None),  # already has correct main
 ]
 
 def replace_main(source_content, new_function_name, button_name):

@@ -132,12 +132,13 @@ function changePassword(workbook: ExcelScript.Workbook): void {
   if (!loginSheet) return;
   const msgCell: ExcelScript.Range = loginSheet.getRange("B6");
 
-  // If any required sheet is still veryHidden from an old session, flip it to
-  // plain hidden and abort — Office Scripts won't honour the new visibility
-  // for cell writes within the same run, so the user retries.
-  if (normalizeSheetVisibility(workbook)) {
-    msgCell.setValue("Visibility refreshed. Click Change Password again to save the new password.");
-    msgCell.getFormat().getFont().setColor("#FDC400");
+  // If USERS_DB is still veryHidden (legacy state) we can't write to it.
+  // Bail out with a clear instruction instead of a cryptic Excel error.
+  const usersCheck: ExcelScript.Worksheet | undefined = workbook.getWorksheet("USERS_DB");
+  if (usersCheck && usersCheck.getVisibility() === ExcelScript.SheetVisibility.veryHidden) {
+    safeSetVisibility(usersCheck, ExcelScript.SheetVisibility.hidden);
+    msgCell.setValue("Workbook locked. Run RecoverWorkbook once (Review > Protect Workbook to unprotect first if a password is set), then click Change Password again.");
+    msgCell.getFormat().getFont().setColor("#D9415C");
     return;
   }
 
