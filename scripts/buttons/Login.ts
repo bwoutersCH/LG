@@ -45,6 +45,10 @@ function main(workbook: ExcelScript.Workbook): void {
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 function runLogin(workbook: ExcelScript.Workbook): void {
+  // Normalise any leftover veryHidden state from earlier builds so subsequent
+  // scripts can write to USERS_DB / SESSION without permission errors.
+  normalizeSheetVisibility(workbook);
+
   const loginSheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("LOGIN");
   if (!loginSheet) return;
 
@@ -123,6 +127,15 @@ function changePassword(workbook: ExcelScript.Workbook): void {
   const loginSheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("LOGIN");
   if (!loginSheet) return;
   const msgCell: ExcelScript.Range = loginSheet.getRange("B6");
+
+  // If any required sheet is still veryHidden from an old session, flip it to
+  // plain hidden and abort — Office Scripts won't honour the new visibility
+  // for cell writes within the same run, so the user retries.
+  if (normalizeSheetVisibility(workbook)) {
+    msgCell.setValue("Visibility refreshed. Click Change Password again to save the new password.");
+    msgCell.getFormat().getFont().setColor("#FDC400");
+    return;
+  }
 
   const session: SessionData | null = getSession(workbook);
   if (!session) {
@@ -383,6 +396,18 @@ function parseExcelDate(value: string | number | boolean): Date {
     return epoch;
   }
   return new Date(String(value));
+}
+
+function normalizeSheetVisibility(workbook: ExcelScript.Workbook): boolean {
+  let changed: boolean = false;
+  const sheets: ExcelScript.Worksheet[] = workbook.getWorksheets();
+  for (const s of sheets) {
+    if (s.getVisibility() === ExcelScript.SheetVisibility.veryHidden) {
+      s.setVisibility(ExcelScript.SheetVisibility.hidden);
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 function hideAllWorksheets(workbook: ExcelScript.Workbook): void {
