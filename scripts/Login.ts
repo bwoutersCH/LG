@@ -111,6 +111,10 @@ function runLogin(workbook: ExcelScript.Workbook): void {
   // First-login check: if the stored hash matches the default password hash,
   // require the user to set a new one before granting access to other sheets.
   if (storedHash === simpleHash("Pass1234")) {
+    // Reveal USERS_DB now so the next run (Change Password) can write to it.
+    // Office Scripts won't honour an in-script visibility flip for cell writes,
+    // so we do it in this run and let the user trigger the write in the next.
+    workbook.getWorksheet("USERS_DB")?.setVisibility(ExcelScript.SheetVisibility.visible);
     msgCell.setValue("First login: type a new password in the Password field and click 'Run changePassword'.");
     msgCell.getFormat().getFont().setColor("#FDC400");
     return;
@@ -195,6 +199,10 @@ function changePassword(workbook: ExcelScript.Workbook): void {
   loginSheet.getRange("B4").setValue("");
   msgCell.setValue(`Password updated. Welcome ${session.username}.`);
   msgCell.getFormat().getFont().setColor("#239A98");
+
+  // Re-hide USERS_DB now that the write is done; showSheetsForRole will
+  // unhide it again only if the user is an Admin.
+  usersSheet.setVisibility(ExcelScript.SheetVisibility.hidden);
 
   showSheetsForRole(workbook, session.role);
   const timeSheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("TIME_ENTRY");
