@@ -98,8 +98,16 @@ function runLogin(workbook: ExcelScript.Workbook): void {
   writeSession(workbook, sessionData);
 
   loginSheet.getRange("B4").setValue("");
-  msgCell.setValue("");
 
+  // First-login check: if the stored hash matches the default password hash,
+  // require the user to set a new one before granting access to other sheets.
+  if (storedHash === simpleHash("Pass1234")) {
+    msgCell.setValue("First login: type a new password in the Password field and click 'Run changePassword'.");
+    msgCell.getFormat().getFont().setColor("#FDC400");
+    return;
+  }
+
+  msgCell.setValue("");
   showSheetsForRole(workbook, user.role);
 
   const timeSheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("TIME_ENTRY");
@@ -108,6 +116,75 @@ function runLogin(workbook: ExcelScript.Workbook): void {
   }
 
   refreshDailyCheck(workbook, sessionData);
+}
+
+// ── Change Password ──────────────────────────────────────────────────────────
+function changePassword(workbook: ExcelScript.Workbook): void {
+  const loginSheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("LOGIN");
+  if (!loginSheet) return;
+  const msgCell: ExcelScript.Range = loginSheet.getRange("B6");
+
+  const session: SessionData | null = getSession(workbook);
+  if (!session) {
+    msgCell.setValue("Please log in first, then type a new password and run Change Password.");
+    msgCell.getFormat().getFont().setColor("#D9415C");
+    return;
+  }
+
+  const newPassword: string = String(loginSheet.getRange("B4").getValue()).trim();
+  if (!newPassword) {
+    msgCell.setValue("Type a new password in the Password field, then run Change Password.");
+    msgCell.getFormat().getFont().setColor("#D9415C");
+    return;
+  }
+  if (newPassword === "Pass1234") {
+    msgCell.setValue("New password cannot be the default. Choose a different password.");
+    msgCell.getFormat().getFont().setColor("#D9415C");
+    return;
+  }
+  if (newPassword.length < 6) {
+    msgCell.setValue("New password must be at least 6 characters.");
+    msgCell.getFormat().getFont().setColor("#D9415C");
+    return;
+  }
+
+  const usersSheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("USERS_DB");
+  if (!usersSheet) {
+    msgCell.setValue("USERS_DB not found.");
+    msgCell.getFormat().getFont().setColor("#D9415C");
+    return;
+  }
+  const table: ExcelScript.Table | undefined = usersSheet.getTable("UsersTable");
+  if (!table) {
+    msgCell.setValue("UsersTable not found.");
+    msgCell.getFormat().getFont().setColor("#D9415C");
+    return;
+  }
+
+  const body: ExcelScript.Range = table.getRangeBetweenHeaderAndTotal();
+  const rows: (string | number | boolean)[][] = body.getValues();
+  let userRowIdx: number = -1;
+  for (let i: number = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === session.userID) { userRowIdx = i; break; }
+  }
+  if (userRowIdx === -1) {
+    msgCell.setValue("Session user not found in USERS_DB.");
+    msgCell.getFormat().getFont().setColor("#D9415C");
+    return;
+  }
+
+  body.getCell(userRowIdx, 3).setValue(simpleHash(newPassword));
+
+  loginSheet.getRange("B4").setValue("");
+  msgCell.setValue(`Password updated. Welcome ${session.username}.`);
+  msgCell.getFormat().getFont().setColor("#239A98");
+
+  showSheetsForRole(workbook, session.role);
+  const timeSheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("TIME_ENTRY");
+  if (timeSheet) {
+    timeSheet.getRange("B2").setValue(formatDate(new Date()));
+  }
+  refreshDailyCheck(workbook, session);
 }
 
 // ── Logout ────────────────────────────────────────────────────────────────────
@@ -311,11 +388,16 @@ function parseExcelDate(value: string | number | boolean): Date {
 
 function hideAllWorksheets(workbook: ExcelScript.Workbook): void {
   const alwaysVisible: string[] = ["LOGIN", "README"];
+  // Admin-only sheets become veryHidden so non-admins can't unhide them
+  // via right-click. Only Office Scripts (and admin role) can reveal them.
+  const adminOnly: string[] = ["USERS_DB", "PROJECTS_DB", "ACTIVITIES_DB", "TEAMS_DB", "ADMIN", "SESSION"];
   const sheets: ExcelScript.Worksheet[] = workbook.getWorksheets();
   for (const s of sheets) {
     const nm: string = s.getName();
     if (alwaysVisible.includes(nm)) {
       s.setVisibility(ExcelScript.SheetVisibility.visible);
+    } else if (adminOnly.includes(nm)) {
+      s.setVisibility(ExcelScript.SheetVisibility.veryHidden);
     } else {
       s.setVisibility(ExcelScript.SheetVisibility.hidden);
     }

@@ -1,11 +1,6 @@
 /**
- * Login.ts — Handles user authentication and session management.
- * Self-contained Office Script. Entry point: main()
- *
- * Contains two modes — set the ACTION cell (B8) to "login" or "logout"
- * before running, or call via button assignment.
- *
- * For button use, create separate scripts that call runLogin / runLogout directly.
+ * ChangePassword — Auto-generated button script.
+ * Entry point: main() calls changePassword().
  */
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -45,7 +40,7 @@ interface TimeEntryRow {
 
 // ── Entry Point ───────────────────────────────────────────────────────────────
 function main(workbook: ExcelScript.Workbook): void {
-  runLogin(workbook);
+  changePassword(workbook);
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────────
