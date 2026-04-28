@@ -114,7 +114,7 @@ function runLogin(workbook: ExcelScript.Workbook): void {
     // Reveal USERS_DB now so the next run (Change Password) can write to it.
     // Office Scripts won't honour an in-script visibility flip for cell writes,
     // so we do it in this run and let the user trigger the write in the next.
-    workbook.getWorksheet("USERS_DB")?.setVisibility(ExcelScript.SheetVisibility.visible);
+    safeSetVisibility(workbook.getWorksheet("USERS_DB"), ExcelScript.SheetVisibility.visible);
     msgCell.setValue("First login: type a new password in the Password field and click 'Run changePassword'.");
     msgCell.getFormat().getFont().setColor("#FDC400");
     return;
@@ -202,7 +202,7 @@ function changePassword(workbook: ExcelScript.Workbook): void {
 
   // Re-hide USERS_DB now that the write is done; showSheetsForRole will
   // unhide it again only if the user is an Admin.
-  usersSheet.setVisibility(ExcelScript.SheetVisibility.hidden);
+  safeSetVisibility(usersSheet, ExcelScript.SheetVisibility.hidden);
 
   showSheetsForRole(workbook, session.role);
   const timeSheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("TIME_ENTRY");
@@ -411,12 +411,24 @@ function parseExcelDate(value: string | number | boolean): Date {
   return new Date(String(value));
 }
 
+// Best-effort visibility change. Workbook structure protection (Review > Protect
+// Workbook) blocks scripts from hiding/unhiding sheets — silently skip in that
+// case so the rest of the script (session, password write, etc.) still runs.
+function safeSetVisibility(sheet: ExcelScript.Worksheet | undefined, vis: ExcelScript.SheetVisibility): void {
+  if (!sheet) return;
+  try {
+    sheet.setVisibility(vis);
+  } catch (_e) {
+    // ignore
+  }
+}
+
 function normalizeSheetVisibility(workbook: ExcelScript.Workbook): boolean {
   let changed: boolean = false;
   const sheets: ExcelScript.Worksheet[] = workbook.getWorksheets();
   for (const s of sheets) {
     if (s.getVisibility() === ExcelScript.SheetVisibility.veryHidden) {
-      s.setVisibility(ExcelScript.SheetVisibility.hidden);
+      safeSetVisibility(s, ExcelScript.SheetVisibility.hidden);
       changed = true;
     }
   }
@@ -429,12 +441,12 @@ function hideAllWorksheets(workbook: ExcelScript.Workbook): void {
   for (const s of sheets) {
     const nm: string = s.getName();
     if (alwaysVisible.includes(nm)) {
-      s.setVisibility(ExcelScript.SheetVisibility.visible);
+      safeSetVisibility(s, ExcelScript.SheetVisibility.visible);
     } else {
-      s.setVisibility(ExcelScript.SheetVisibility.hidden);
+      safeSetVisibility(s, ExcelScript.SheetVisibility.hidden);
     }
   }
-  workbook.getWorksheet("LOGIN")?.activate();
+  try { workbook.getWorksheet("LOGIN")?.activate(); } catch (_e) { /* ignore */ }
 }
 
 function showSheetsForRole(workbook: ExcelScript.Workbook, role: string): void {
@@ -446,10 +458,7 @@ function showSheetsForRole(workbook: ExcelScript.Workbook, role: string): void {
   visibleSheets.push("README");
 
   for (const name of visibleSheets) {
-    const ws: ExcelScript.Worksheet | undefined = workbook.getWorksheet(name);
-    if (ws) ws.setVisibility(ExcelScript.SheetVisibility.visible);
+    safeSetVisibility(workbook.getWorksheet(name), ExcelScript.SheetVisibility.visible);
   }
-  const loginSheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("LOGIN");
-  // Keep LOGIN visible so users can navigate back to log out
-  workbook.getWorksheet("TIME_ENTRY")?.activate();
+  try { workbook.getWorksheet("TIME_ENTRY")?.activate(); } catch (_e) { /* ignore */ }
 }
