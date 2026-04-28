@@ -166,19 +166,26 @@ function changePassword(workbook: ExcelScript.Workbook): void {
     return;
   }
 
-  const body: ExcelScript.Range = table.getRangeBetweenHeaderAndTotal();
-  const rows: (string | number | boolean)[][] = body.getValues();
-  let userRowIdx: number = -1;
-  for (let i: number = 0; i < rows.length; i++) {
-    if (String(rows[i][0]) === session.userID) { userRowIdx = i; break; }
+  // Office Scripts can't setValue on a veryHidden sheet, so reveal it for
+  // the duration of the write and re-hide it afterwards.
+  const previousVisibility: ExcelScript.SheetVisibility = usersSheet.getVisibility();
+  usersSheet.setVisibility(ExcelScript.SheetVisibility.visible);
+  try {
+    const body: ExcelScript.Range = table.getRangeBetweenHeaderAndTotal();
+    const rows: (string | number | boolean)[][] = body.getValues();
+    let userRowIdx: number = -1;
+    for (let i: number = 0; i < rows.length; i++) {
+      if (String(rows[i][0]) === session.userID) { userRowIdx = i; break; }
+    }
+    if (userRowIdx === -1) {
+      msgCell.setValue("Session user not found in USERS_DB.");
+      msgCell.getFormat().getFont().setColor("#D9415C");
+      return;
+    }
+    body.getCell(userRowIdx, 3).setValue(simpleHash(newPassword));
+  } finally {
+    usersSheet.setVisibility(previousVisibility);
   }
-  if (userRowIdx === -1) {
-    msgCell.setValue("Session user not found in USERS_DB.");
-    msgCell.getFormat().getFont().setColor("#D9415C");
-    return;
-  }
-
-  body.getCell(userRowIdx, 3).setValue(simpleHash(newPassword));
 
   loginSheet.getRange("B4").setValue("");
   msgCell.setValue(`Password updated. Welcome ${session.username}.`);
