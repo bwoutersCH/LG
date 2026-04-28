@@ -13,6 +13,7 @@ BUTTONS = [
     # LOGIN sheet
     ("Login.ts", "Login.ts", "runLogin"),
     ("Logout.ts", "Login.ts", "runLogout"),
+    ("ChangePassword.ts", "Login.ts", "changePassword"),
     # TIME_ENTRY sheet
     ("AddEntry.ts", "TimeEntry.ts", "addEntry"),
     ("FilterMyEntries.ts", "TimeEntry.ts", "filterMyEntries"),
