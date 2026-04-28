@@ -251,11 +251,10 @@ function renderMonthOverview(workbook: ExcelScript.Workbook, session: SessionDat
   const endDate: Date = new Date(year, month + 1, 0);
 
   const dayNames: string[] = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const weekdayDates: Date[] = [];
+  const monthDates: Date[] = [];
   const cur: Date = new Date(startDate);
   while (cur <= endDate) {
-    const dow: number = cur.getDay();
-    if (dow >= 1 && dow <= 5) weekdayDates.push(new Date(cur));
+    monthDates.push(new Date(cur));
     cur.setDate(cur.getDate() + 1);
   }
 
@@ -269,8 +268,8 @@ function renderMonthOverview(workbook: ExcelScript.Workbook, session: SessionDat
     hoursMap.set(key, (hoursMap.get(key) || 0) + entry.hours);
   }
 
-  // Clear previous rendering (generous range to cover any prior month size)
-  const clearRange: ExcelScript.Range = checkSheet.getRange("A3:C45");
+  // Clear previous rendering (covers any prior month size up to 31 days + total/msg)
+  const clearRange: ExcelScript.Range = checkSheet.getRange("A3:C50");
   clearRange.clear(ExcelScript.ClearApplyTo.contents);
   clearRange.getFormat().getFill().setColor("#FFFFFF");
 
@@ -280,18 +279,23 @@ function renderMonthOverview(workbook: ExcelScript.Workbook, session: SessionDat
   let row: number = 3;
   let total: number = 0;
   let incompleteCount: number = 0;
-  for (const d of weekdayDates) {
+  for (const d of monthDates) {
     const key: string = formatDate(d);
     const h: number = hoursMap.get(key) || 0;
+    const dow: number = d.getDay();
+    const isWeekend: boolean = dow === 0 || dow === 6;
     total += h;
-    checkSheet.getRange(`A${row}`).setValue(dayNames[d.getDay()]);
+    checkSheet.getRange(`A${row}`).setValue(dayNames[dow]);
     checkSheet.getRange(`B${row}`).setValue(key);
     checkSheet.getRange(`C${row}`).setValue(h);
     const fmt: ExcelScript.RangeFormat = checkSheet.getRange(`A${row}:C${row}`).getFormat();
-    if (h < 8 && d <= today) {
+    if (!isWeekend && h < 8 && d <= today) {
       fmt.getFill().setColor("#FDC400");
       fmt.getFont().setColor("#575756");
       incompleteCount++;
+    } else if (isWeekend) {
+      fmt.getFill().setColor("#F1F1F1");
+      fmt.getFont().setColor("#575756");
     } else {
       fmt.getFill().setColor("#FFFFFF");
       fmt.getFont().setColor("#575756");
