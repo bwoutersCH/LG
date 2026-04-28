@@ -1,6 +1,6 @@
 /**
- * FilterMyEntries — Auto-generated button script.
- * Entry point: main() calls filterMyEntries().
+ * PreviousMonth — Auto-generated button script.
+ * Entry point: main() calls previousMonth().
  */
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ interface TimeEntryRow {
 
 // ── Entry Point ───────────────────────────────────────────────────────────────
 function main(workbook: ExcelScript.Workbook): void {
-  filterMyEntries(workbook);
+  previousMonth(workbook);
 }
 
 // ── Add Entry ─────────────────────────────────────────────────────────────────
