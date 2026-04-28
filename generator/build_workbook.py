@@ -348,10 +348,19 @@ def build_reports(wb):
     c.fill = PatternFill(start_color=DARK_BLUE, end_color=DARK_BLUE, fill_type="solid")
     c.alignment = Alignment(horizontal="center")
 
-    # Period selector
+    # Period selector — base options + last 12 months as YYYY-MM
     style_label_cell(ws, 2, 1, "Period:")
     style_input_cell(ws, 2, 2)
-    periods = "This week,This month,This quarter,YTD,Full year"
+    today_d = date.today()
+    month_options = []
+    for i in range(12):
+        y = today_d.year
+        m = today_d.month - i
+        while m <= 0:
+            y -= 1
+            m += 12
+        month_options.append(f"{y:04d}-{m:02d}")
+    periods = ",".join(["This week", "This month", "This quarter", "YTD", "Full year"] + month_options)
     dv_period = DataValidation(type="list", formula1=f'"{periods}"', allow_blank=False)
     ws.add_data_validation(dv_period)
     dv_period.add(ws["B2"])

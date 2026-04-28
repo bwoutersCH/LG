@@ -222,13 +222,21 @@ function generateReport(workbook: ExcelScript.Workbook): void {
   let startDate: Date;
   let endDate: Date = today;
 
-  switch (period) {
-    case "This week": startDate = getWeekStart(today); endDate = getWeekEnd(today); break;
-    case "This month": startDate = new Date(today.getFullYear(), today.getMonth(), 1); endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); break;
-    case "This quarter": { const q: number = Math.floor(today.getMonth() / 3); startDate = new Date(today.getFullYear(), q * 3, 1); endDate = new Date(today.getFullYear(), q * 3 + 3, 0); break; }
-    case "YTD": startDate = new Date(today.getFullYear(), 0, 1); break;
-    case "Full year": startDate = new Date(today.getFullYear(), 0, 1); endDate = new Date(today.getFullYear(), 11, 31); break;
-    default: startDate = getWeekStart(today); endDate = getWeekEnd(today);
+  const monthMatch: RegExpMatchArray | null = period.match(/^(\d{4})-(\d{2})$/);
+  if (monthMatch) {
+    const y: number = Number(monthMatch[1]);
+    const m: number = Number(monthMatch[2]) - 1;
+    startDate = new Date(y, m, 1);
+    endDate = new Date(y, m + 1, 0);
+  } else {
+    switch (period) {
+      case "This week": startDate = getWeekStart(today); endDate = getWeekEnd(today); break;
+      case "This month": startDate = new Date(today.getFullYear(), today.getMonth(), 1); endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); break;
+      case "This quarter": { const q: number = Math.floor(today.getMonth() / 3); startDate = new Date(today.getFullYear(), q * 3, 1); endDate = new Date(today.getFullYear(), q * 3 + 3, 0); break; }
+      case "YTD": startDate = new Date(today.getFullYear(), 0, 1); break;
+      case "Full year": startDate = new Date(today.getFullYear(), 0, 1); endDate = new Date(today.getFullYear(), 11, 31); break;
+      default: startDate = getWeekStart(today); endDate = getWeekEnd(today);
+    }
   }
 
   const startStr: string = formatDate(startDate);
@@ -323,6 +331,28 @@ function generateReport(workbook: ExcelScript.Workbook): void {
   activityMap.forEach((val: number, key: string): void => {
     sheet.getRange(`A${outputRow}`).setValue(key); sheet.getRange(`B${outputRow}`).setValue(val); outputRow++;
   });
+  outputRow += 2;
+
+  // Section: Hours by Month
+  const monthMap: Map<string, number> = new Map<string, number>();
+  for (const e of entries) {
+    const ym: string = e.date.length >= 7 ? e.date.substring(0, 7) : e.date;
+    monthMap.set(ym, (monthMap.get(ym) || 0) + e.hours);
+  }
+  sheet.getRange(`A${outputRow}`).setValue("Hours by Month");
+  sheet.getRange(`A${outputRow}:C${outputRow}`).getFormat().getFill().setColor("#239A98");
+  sheet.getRange(`A${outputRow}:C${outputRow}`).getFormat().getFont().setColor("#FFFFFF");
+  sheet.getRange(`A${outputRow}:C${outputRow}`).getFormat().getFont().setBold(true);
+  outputRow++;
+  sheet.getRange(`A${outputRow}`).setValue("Month"); sheet.getRange(`B${outputRow}`).setValue("Hours");
+  sheet.getRange(`A${outputRow}:B${outputRow}`).getFormat().getFont().setBold(true);
+  outputRow++;
+  const sortedMonths: string[] = Array.from(monthMap.keys()).sort();
+  for (const ym of sortedMonths) {
+    sheet.getRange(`A${outputRow}`).setValue(ym);
+    sheet.getRange(`B${outputRow}`).setValue(monthMap.get(ym) || 0);
+    outputRow++;
+  }
   outputRow += 2;
 
   // Section 4: Daily average per employee
