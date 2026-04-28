@@ -181,54 +181,138 @@ function clearFilters(workbook: ExcelScript.Workbook): void {
   msgCell.getFormat().getFont().setColor("#575756");
 }
 
-// ── Validate Week ─────────────────────────────────────────────────────────────
+// ── Validate Week / Monthly Overview ─────────────────────────────────────────
 function validateWeek(workbook: ExcelScript.Workbook): void {
+  monthOverview(workbook);
+}
+
+function monthOverview(workbook: ExcelScript.Workbook): void {
+  const session: SessionData = requireSession(workbook);
+  renderMonthOverview(workbook, session);
+}
+
+function previousMonth(workbook: ExcelScript.Workbook): void {
+  shiftMonth(workbook, -1);
+}
+
+function nextMonth(workbook: ExcelScript.Workbook): void {
+  shiftMonth(workbook, 1);
+}
+
+function shiftMonth(workbook: ExcelScript.Workbook, delta: number): void {
   const session: SessionData = requireSession(workbook);
   const checkSheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("DAILY_CHECK");
   if (!checkSheet) return;
+  const ym: { year: number; month: number } = readMonthCell(checkSheet);
+  let y: number = ym.year;
+  let m: number = ym.month + delta;
+  while (m < 0) { y--; m += 12; }
+  while (m > 11) { y++; m -= 12; }
+  writeMonthCell(checkSheet, y, m);
+  renderMonthOverview(workbook, session);
+}
+
+function readMonthCell(sheet: ExcelScript.Worksheet): { year: number; month: number } {
+  const raw: string | number | boolean = sheet.getRange("E1").getValue();
+  const today: Date = new Date();
+  if (typeof raw === "number") {
+    const d: Date = parseExcelDate(raw);
+    return { year: d.getFullYear(), month: d.getMonth() };
+  }
+  const txt: string = String(raw).trim();
+  const match: RegExpMatchArray | null = txt.match(/^(\d{4})-(\d{1,2})$/);
+  if (match) return { year: Number(match[1]), month: Number(match[2]) - 1 };
+  return { year: today.getFullYear(), month: today.getMonth() };
+}
+
+function writeMonthCell(sheet: ExcelScript.Worksheet, year: number, month: number): void {
+  const label: string = `${year}-${String(month + 1).padStart(2, "0")}`;
+  const cell: ExcelScript.Range = sheet.getRange("E1");
+  cell.setNumberFormat("@");
+  cell.setValue(label);
+}
+
+function renderMonthOverview(workbook: ExcelScript.Workbook, session: SessionData): void {
+  const checkSheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("DAILY_CHECK");
+  if (!checkSheet) return;
+
+  const ym: { year: number; month: number } = readMonthCell(checkSheet);
+  const year: number = ym.year;
+  const month: number = ym.month;
+  writeMonthCell(checkSheet, year, month);
+
+  checkSheet.getRange("D1").setValue("Month:");
+  checkSheet.getRange("D1").getFormat().getFont().setBold(true);
 
   const today: Date = new Date();
-  const weekStart: Date = getWeekStart(today);
+  today.setHours(0, 0, 0, 0);
+
+  const startDate: Date = new Date(year, month, 1);
+  const endDate: Date = new Date(year, month + 1, 0);
+
+  const dayNames: string[] = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const weekdayDates: Date[] = [];
+  const cur: Date = new Date(startDate);
+  while (cur <= endDate) {
+    const dow: number = cur.getDay();
+    if (dow >= 1 && dow <= 5) weekdayDates.push(new Date(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+
   const entries: TimeEntryRow[] = getAllTimeEntries(workbook);
-
-  const dayNames: string[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-  const dayHours: number[] = [0, 0, 0, 0, 0];
-
+  const hoursMap: Map<string, number> = new Map<string, number>();
   for (const entry of entries) {
     if (entry.employeeID !== session.userID) continue;
     const entryDate: Date = parseExcelDate(entry.date);
-    const entryWeekStart: Date = getWeekStart(entryDate);
-    if (formatDate(entryWeekStart) !== formatDate(weekStart)) continue;
-    const dayOfWeek: number = entryDate.getDay();
-    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-      dayHours[dayOfWeek - 1] += entry.hours;
-    }
+    if (entryDate.getFullYear() !== year || entryDate.getMonth() !== month) continue;
+    const key: string = formatDate(entryDate);
+    hoursMap.set(key, (hoursMap.get(key) || 0) + entry.hours);
   }
 
-  const issues: string[] = [];
-  for (let i: number = 0; i < 5; i++) {
-    const dateForDay: Date = new Date(weekStart);
-    dateForDay.setDate(weekStart.getDate() + i);
-    if (dateForDay <= today) {
-      if (dayHours[i] < 8) {
-        issues.push(`${dayNames[i]} (${formatDate(dateForDay)}): ${dayHours[i]}h - needs ${8 - dayHours[i]}h more`);
-      }
+  // Clear previous rendering (generous range to cover any prior month size)
+  const clearRange: ExcelScript.Range = checkSheet.getRange("A3:C45");
+  clearRange.clear(ExcelScript.ClearApplyTo.contents);
+  clearRange.getFormat().getFill().setColor("#FFFFFF");
+
+  const monthLabel: string = `${year}-${String(month + 1).padStart(2, "0")}`;
+  checkSheet.getRange("A1").setValue(`Monthly Hours - ${session.username} - ${monthLabel}`);
+
+  let row: number = 3;
+  let total: number = 0;
+  let incompleteCount: number = 0;
+  for (const d of weekdayDates) {
+    const key: string = formatDate(d);
+    const h: number = hoursMap.get(key) || 0;
+    total += h;
+    checkSheet.getRange(`A${row}`).setValue(dayNames[d.getDay()]);
+    checkSheet.getRange(`B${row}`).setValue(key);
+    checkSheet.getRange(`C${row}`).setValue(h);
+    const fmt: ExcelScript.RangeFormat = checkSheet.getRange(`A${row}:C${row}`).getFormat();
+    if (h < 8 && d <= today) {
+      fmt.getFill().setColor("#FDC400");
+      fmt.getFont().setColor("#575756");
+      incompleteCount++;
+    } else {
+      fmt.getFill().setColor("#FFFFFF");
+      fmt.getFont().setColor("#575756");
     }
+    row++;
   }
 
-  const msgCell: ExcelScript.Range = checkSheet.getRange("A10");
-  if (issues.length === 0) {
-    msgCell.setValue("Week is complete! All days have 8+ hours logged.");
+  checkSheet.getRange(`A${row}`).setValue("TOTAL");
+  checkSheet.getRange(`C${row}`).setValue(total);
+  checkSheet.getRange(`A${row}:C${row}`).getFormat().getFont().setBold(true);
+  row += 2;
+
+  const msgCell: ExcelScript.Range = checkSheet.getRange(`A${row}`);
+  if (incompleteCount === 0) {
+    msgCell.setValue(`Month ${monthLabel}: all logged weekdays complete (${total}h).`);
     msgCell.getFormat().getFont().setColor("#239A98");
-    msgCell.getFormat().getFont().setBold(true);
   } else {
-    const msg: string = "Incomplete days:\n" + issues.join("\n");
-    msgCell.setValue(msg);
+    msgCell.setValue(`Month ${monthLabel}: ${incompleteCount} weekday(s) below 8h. Total: ${total}h.`);
     msgCell.getFormat().getFont().setColor("#D9415C");
-    msgCell.getFormat().getFont().setBold(true);
   }
-
-  refreshDailyCheck(workbook, session);
+  msgCell.getFormat().getFont().setBold(true);
 }
 
 // ── Delete Entry ──────────────────────────────────────────────────────────────
@@ -283,49 +367,7 @@ function deleteEntry(workbook: ExcelScript.Workbook): void {
 
 // ── Daily Check Refresh ───────────────────────────────────────────────────────
 function refreshDailyCheck(workbook: ExcelScript.Workbook, session: SessionData): void {
-  const checkSheet: ExcelScript.Worksheet | undefined = workbook.getWorksheet("DAILY_CHECK");
-  if (!checkSheet) return;
-
-  const today: Date = new Date();
-  const weekStart: Date = getWeekStart(today);
-  const entries: TimeEntryRow[] = getAllTimeEntries(workbook);
-
-  const days: string[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-  const dayHours: number[] = [0, 0, 0, 0, 0];
-
-  for (const entry of entries) {
-    if (entry.employeeID !== session.userID) continue;
-    const entryDate: Date = parseExcelDate(entry.date);
-    const entryWeekStart: Date = getWeekStart(entryDate);
-    if (formatDate(entryWeekStart) !== formatDate(weekStart)) continue;
-    const dayOfWeek: number = entryDate.getDay();
-    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-      dayHours[dayOfWeek - 1] += entry.hours;
-    }
-  }
-
-  for (let i: number = 0; i < 5; i++) {
-    const dateForDay: Date = new Date(weekStart);
-    dateForDay.setDate(weekStart.getDate() + i);
-    const row: number = 3 + i;
-    checkSheet.getRange(`A${row}`).setValue(days[i]);
-    checkSheet.getRange(`B${row}`).setValue(formatDate(dateForDay));
-    checkSheet.getRange(`C${row}`).setValue(dayHours[i]);
-    const fmt: ExcelScript.RangeFormat = checkSheet.getRange(`A${row}:C${row}`).getFormat();
-    if (dayHours[i] < 8 && formatDate(dateForDay) <= formatDate(today)) {
-      fmt.getFill().setColor("#FDC400");
-      fmt.getFont().setColor("#575756");
-    } else {
-      fmt.getFill().setColor("#FFFFFF");
-      fmt.getFont().setColor("#575756");
-    }
-  }
-
-  const totalHours: number = dayHours.reduce((a: number, b: number): number => a + b, 0);
-  checkSheet.getRange("A8").setValue("TOTAL");
-  checkSheet.getRange("C8").setValue(totalHours);
-  checkSheet.getRange("A8:C8").getFormat().getFont().setBold(true);
-  checkSheet.getRange("A1").setValue(`Weekly Hours - ${session.username} - Week of ${formatDate(weekStart)}`);
+  renderMonthOverview(workbook, session);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

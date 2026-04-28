@@ -20,6 +20,8 @@ BUTTONS = [
     ("DeleteEntry.ts", "TimeEntry.ts", "deleteEntry"),
     # DAILY_CHECK sheet
     ("ValidateWeek.ts", "TimeEntry.ts", "validateWeek"),
+    ("PreviousMonth.ts", "TimeEntry.ts", "previousMonth"),
+    ("NextMonth.ts", "TimeEntry.ts", "nextMonth"),
     # MANAGER_VIEW sheet
     ("FilterManagerView.ts", "Reports.ts", "filterManagerView"),
     ("CorrectEntry.ts", "Reports.ts", "correctEntry"),
